@@ -1,0 +1,181 @@
+#!/usr/bin/python3
+
+import sys
+import inspect
+import argparse
+import ipaddress
+import socket
+import os
+import json
+import subprocess
+
+COLOR_NORMAL="[0m"
+COLOR_RED="[1;31m"
+COLOR_GREEN="[1;32m"
+
+
+class Subcommand:
+    """
+    Base class from which subcommands should inherit.
+    """
+    subcommand = None
+    short_desc = None
+
+    def __init__(self, args):
+        self.args = args
+
+    @classmethod
+    def config_parser(cls, parser):
+        pass
+
+    def run(self):
+        sys.stdout.write("Running '{}' with args: {}\n".format(self.subcommand, self.args))
+
+
+class Netconn(Subcommand):
+    subcommand = "netconn"
+    short_desc = "Net connection test"
+    long_desc = "Perform connection test to an IP or hostname and optional port."
+
+    @classmethod
+    def config_parser(cls, parser):
+        parser.description = cls.long_desc
+        parser.add_argument("host")
+        parser.add_argument('port', nargs='?', metavar='PORT', type=int, default=None, help='Port')
+        parser.add_argument('data', nargs='?', metavar='DATA', type=str, default=None, help='Data to send')
+        parser.add_argument('-t', '--timeout', metavar='TIMEOUT', type=int, default=2, help='Socket timeout')
+
+    def run(self):
+        try:
+            host = self.args.host
+            self._host_info(host)
+        except Exception as err:
+            sys.stderr.write("'{}' is not a hostname: {}\n".format(self.args.host, err))
+            raise
+
+    def _host_info(self, host):
+        ip = socket.gethostbyname(host)
+        hostname, aliases, ips = socket.gethostbyname_ex(host)
+        rem_ips = subprocess.check_output("dig @1.1.1.1 +short {}".format(host), shell=True).decode("utf-8").strip()
+
+        sys.stdout.write("hostname: {}\n".format(hostname))
+        sys.stdout.write("aliasses: {}\n".format(", ".join(aliases)))
+        sys.stdout.write("ips (local dns): {}\n".format(", ".join(ips)))
+        sys.stdout.write("ips (public dns): {}\n".format(rem_ips))
+
+        for ip in ips:
+            self._ip_info(ipaddress.ip_address(ip), self.args)
+
+    def _ip_info(self, ip, args):
+        try:
+            dnsname, aliases, ips = socket.gethostbyaddr(ip.exploded)
+            sys.stdout.write("{}: reversehostname: {}\n".format(ip.exploded, dnsname))
+        except Exception as err:
+            sys.stderr.write("{}: reversehostname: {}{}{}\n".format(ip.exploded, COLOR_RED, err, COLOR_NORMAL))
+
+        self._ip_ping(ip)
+        if self.args.port is not None:
+            self._port_connect(ip, self.args.port, self.args.data)
+
+    def _ip_ping(self, ip):
+        sys.stdout.write("{}: ping: ".format(ip.exploded))
+        sys.stdout.flush()
+
+        response = os.system("ping -c 1 -W 2 " + ip.exploded + " > /dev/null")
+        if response == 0:
+            sys.stdout.write("{}response received{}\n".format(COLOR_GREEN, COLOR_NORMAL))
+        else:
+            sys.stderr.write("{}no response received{}\n".format(COLOR_RED, COLOR_NORMAL))
+
+    def _port_connect(self, ip, port, data):
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(self.args.timeout)
+        sys.stdout.write("{}:{}: socket: connecting...\n".format(ip.exploded, port))
+        try:
+            # Connect
+            s.connect((ip.exploded, port))
+            sys.stdout.write("{}:{}: socket: {}connected{} (something is listening there)\n".format(ip.exploded, args.port, COLOR_GREEN, COLOR_NORMAL))
+
+            # Send data
+            if data is not None:
+                sys.stdout.write("{}:{}: socket: sending data: {}\n".format(ip.exploded, port, data))
+                s.send(bytes(data + "\n", 'utf-8'))
+
+            # Receive data
+            try:
+                sys.stdout.write("{}:{}: socket: receiving data...\n".format(ip.exploded, port))
+                sys.stdout.flush()
+                buf = s.recv(4096)
+                sys.stdout.write("{}:{}: socket: {}received data{}:\n".format(ip.exploded, port, COLOR_GREEN, COLOR_NORMAL))
+                for line in buf.splitlines():
+                    sys.stdout.write("  | {}\n".format(line.decode('utf-8')))
+            except Exception as err:
+                sys.stdout.write("{}:{}: socket: {}no data recieved{}: {}\n".format(ip.exploded, port, COLOR_RED, COLOR_NORMAL, err))
+
+            # Close connection
+            s.close()
+            sys.stdout.write("{}:{}: socket: connection closed.\n".format(ip.exploded, port))
+        except Exception as err:
+            sys.stdout.write("{}:{}: socket: couldn't connect to socket: {}\n".format(ip.exploded, port, err))
+
+
+
+class MyIP(Subcommand):
+    subcommand = "myip"
+    short_desc = "Show info on external IP"
+    long_desc = "Show info on the outgoing external IP of the current host."
+
+    @classmethod
+    def config_parser(cls, parser):
+        parser.description = cls.long_desc
+
+    def run(self):
+        info = os.popen('curl -4 -s ifconfig.co/json').read()
+        j = json.loads(info)
+        sys.stdout.write("ip: {}\n".format(j.get("ip", "??")))
+        sys.stdout.write("hostname: {}\n".format(j.get("hostname", "??")))
+        sys.stdout.write("country: {}\n".format(j.get("country", "??")))
+        sys.stdout.write("city: {}\n".format(j.get("city", "??")))
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Net Tool')
+    parser.add_argument('--version', action='version', version='%(prog)s 0.1')
+
+    bin_name = os.path.basename(sys.argv[0])
+    parser.prog = bin_name
+    if bin_name.startswith("ot-"):
+        # Construct subparser for the specific subcommand we're being called
+        # as.
+        subcommand = bin_name[3:]
+        for member in inspect.getmembers(sys.modules[__name__], inspect.isclass):
+            member_name, member_class = member
+            if member_class.subcommand == subcommand:
+                member_class.config_parser(parser)
+                parser.set_defaults(cls=member_class)
+                break
+        else:
+            sys.stderr.write("No such subcommand '{}'\n".format(subcommand))
+            sys.exit(1)
+    elif bin_name == "ot":
+        # Construct subparsers for all subcommands
+        subparsers = parser.add_subparsers()
+        for member in inspect.getmembers(sys.modules[__name__], inspect.isclass):
+            member_name, member_class = member
+            if member_class.subcommand is not None:
+                subcommand = member_class.subcommand
+                shortdesc = member_class.short_desc
+                subparser = subparsers.add_parser(subcommand, help=shortdesc)
+                member_class.config_parser(subparser)
+                subparser.set_defaults(cls=member_class)
+    else:
+        sys.stderr.write("Can't call ot as '{}'\n".format(bin_name))
+        sys.exit(1)
+
+    args = parser.parse_args()
+    if hasattr(args, 'cls'):
+        subcommand_instance = args.cls(args)
+        subcommand_instance.run()
+    else:
+        sys.stderr.write("Specify a subcommand\n")
+        sys.exit(1)

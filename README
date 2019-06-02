@@ -1,0 +1,28 @@
+# Omnitool
+
+A tool for lazy system administrators.
+
+Subcommands:
+
+## myip
+
+    $ ./ot myip
+    ip: 194.187.79.11
+    hostname: electricmonk.nl
+    country: Netherlands
+    city: ??
+
+## netconn
+
+    $ ./ot netconn smtp.gmail.com 25
+    hostname: gmail-smtp-msa.l.google.com
+    aliasses: smtp.gmail.com
+    ips: 108.177.126.109
+    108.177.126.109: reversehostname: [Errno 1] Unknown host
+    108.177.126.109: ping: response received
+    108.177.126.109:25: socket: connecting...
+    108.177.126.109:25: socket: connected (something is listening there)
+    108.177.126.109:25: socket: receiving data...
+    108.177.126.109:25: socket: received data:
+      | 220 smtp.gmail.com ESMTP x22sm1518848eds.47 - gsmtp
+    108.177.126.109:25: socket: connection closed.
