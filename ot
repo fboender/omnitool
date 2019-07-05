@@ -116,7 +116,7 @@ class Netconn(Subcommand):
             s.close()
             sys.stdout.write("{}:{}: socket: connection closed.\n".format(ip.exploded, port))
         except Exception as err:
-            sys.stdout.write("{}:{}: socket: couldn't connect to socket: {}\n".format(ip.exploded, port, err))
+            sys.stdout.write("{}:{}: socket: {}couldn't connect to socket{}: {}\n".format(ip.exploded, port, COLOR_RED, COLOR_NORMAL, err))
 
 
 
