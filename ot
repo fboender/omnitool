@@ -107,8 +107,14 @@ class Netconn(Subcommand):
                 sys.stdout.flush()
                 buf = s.recv(4096)
                 sys.stdout.write("{}:{}: socket: {}received data{}:\n".format(ip.exploded, port, COLOR_GREEN, COLOR_NORMAL))
-                for line in buf.splitlines():
-                    sys.stdout.write("  | {}\n".format(line.decode('utf-8')))
+                try:
+                    buf_str = buf.decode('utf-8')
+                    for line in buf_str.splitlines():
+                        sys.stdout.write("  | {}\n".format(line))
+                except UnicodeDecodeError as err:
+                    sys.stdout.buffer.write(b"  | ")
+                    sys.stdout.buffer.write(buf)
+                    sys.stdout.buffer.write(b"\n")
             except Exception as err:
                 sys.stdout.write("{}:{}: socket: {}no data recieved{}: {}\n".format(ip.exploded, port, COLOR_RED, COLOR_NORMAL, err))
 
