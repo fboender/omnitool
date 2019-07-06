@@ -144,6 +144,120 @@ class MyIP(Subcommand):
         sys.stdout.write("city: {}\n".format(j.get("city", "??")))
 
 
+class SysInfo(Subcommand):
+    subcommand = "sysinfo"
+    short_desc = "Show system info"
+    long_desc = "Show system information such as disk space and CPUs"
+
+    @classmethod
+    def config_parser(cls, parser):
+        parser.description = cls.long_desc
+
+    def get_processors(self):
+        procs = []
+        with open("/proc/cpuinfo", "r") as f:
+            proc = {}
+            for line in f:
+                if line == "" or line == "\n":
+                    procs.append(proc)
+                    proc = {}
+                else:
+                    fields = line.split(":", 1)
+                    key = fields[0].strip()
+                    value = fields[1].strip()
+                    proc[key] = value
+        return procs
+
+    def get_mem(self):
+        mem = {}
+        with open("/proc/meminfo", "r") as f:
+            for line in f:
+                key, value = map(lambda x: x.strip(), line.split(":", 1))
+                if value.endswith(" kB"):
+                    value = value[:-3]
+                value = int(value)
+                mem[key] = value
+        return {
+            "mem_total": round(mem["MemTotal"] / 1024 / 1024, 2),
+            "mem_free": round(mem["MemFree"] / 1024 / 1024, 2),
+            "mem_avail": round(mem["MemAvailable"] / 1024 / 1024, 2),
+            "mem_bufcache": round((mem["Buffers"] + mem["Cached"]) / 1024 / 1024, 2),
+            "swap_total": round(mem["SwapTotal"] / 1024 / 1024, 2),
+            "swap_free": round(mem["SwapFree"] / 1024 / 1024, 2),
+        }
+
+    def get_os(self):
+        os_info = {
+            'family': 'unknown',
+            'os': 'unknown',
+            'version': (0, 0),
+        }
+
+        if os.path.exists('/etc/lsb-release'):
+            with open('/etc/lsb-release', 'r') as f:
+                for line in f:
+                    if line.strip() == "":
+                        continue
+                    key, value = line.strip().split('=', 1)
+                    if key == 'DISTRIB_ID':
+                        os_info['os'] = value.strip('"\' ').lower()
+                        if value.lower().startswith('ubuntu'):
+                            os_info['family'] = 'debian'
+                    if key == 'DISTRIB_RELEASE':
+                        version = value.strip('"\'').split('.')
+                        if len(version) > 1:
+                            os_info['version'] = (str(version[0]), str(version[1]))
+                        else:
+                            os_info['version'] = (str(version[0]), 0)
+
+        if os.path.exists('/etc/os-release'):
+            with open('/etc/os-release', 'r') as f:
+                for line in f:
+                    if line.strip() == "":
+                        continue
+                    key, value = line.strip().split('=', 1)
+                    if key == 'ID_LIKE':
+                        os_info['family'] = value.strip('"\'').lower()
+                    elif key == 'ID':
+                        os_info['os'] = value.strip('"\'').lower()
+                    elif key == 'VERSION_ID':
+                        version = value.strip('"\'').split('.')
+                        if len(version) > 1:
+                            os_info['version'] = (str(version[0]), str(version[1]))
+                        else:
+                            os_info['version'] = (str(version[0]), 0)
+
+        if os.path.exists('/etc/redhat-release'):
+            os_reg = re.compile(r'^(.*?) release (\d+)\.(\d+).*$')
+            os_info['family'] = 'redhat'
+            with open('/etc/redhat-release', 'r') as f:
+                for line in f:
+                    if line.strip() == "":
+                        continue
+                    match = os_reg.match(line)
+                    if match:
+                        if 'centos' in match.groups()[0].lower():
+                            os_info['os'] = 'centos'
+                        elif 'red hat' in match.groups()[0].lower():
+                            os_info['os'] = 'redhat'
+                        if len(match.groups()) > 1:
+                            os_info['version'] = (str(match.groups()[1]),
+                                                  str(match.groups()[2]))
+                        else:
+                            os_info['version'] = (str(version[0]), 0)
+
+        return os_info
+
+    def run(self):
+        os = self.get_os()
+        processors = self.get_processors()
+        mem = self.get_mem()
+        sys.stdout.write("OS: {} ({}) v{}\n".format(os["os"], os["family"], ".".join(os["version"])))
+        sys.stdout.write("CPU: {} x {}\n".format(len(processors), processors[-1]["model name"]))
+        sys.stdout.write("Mem: {} G total, {} G free, {} G avail\n".format(mem["mem_total"], mem["mem_free"], mem["mem_avail"]))
+        sys.stdout.write("Swap: {} G total, {} G free\n".format(mem["swap_total"], mem["swap_free"]))
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Net Tool')
     parser.add_argument('--version', action='version', version='%(prog)s 0.1')
