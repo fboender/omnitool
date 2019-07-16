@@ -57,7 +57,11 @@ class Netconn(Subcommand):
     def _host_info(self, host):
         ip = socket.gethostbyname(host)
         hostname, aliases, ips = socket.gethostbyname_ex(host)
-        rem_ips = subprocess.check_output("dig @1.1.1.1 +short {}".format(host), shell=True).decode("utf-8").strip()
+        rem_ips = None
+        try:
+            rem_ips = subprocess.check_output("dig @1.1.1.1 +short {}".format(host), shell=True).decode("utf-8").strip()
+        except subprocess.CalledProcessError as err:
+            rem_ips = "{}{}{}".format(COLOR_RED, err, COLOR_NORMAL)
 
         sys.stdout.write("hostname: {}\n".format(hostname))
         sys.stdout.write("aliasses: {}\n".format(", ".join(aliases)))
