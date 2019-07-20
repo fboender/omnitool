@@ -13,7 +13,12 @@ COLOR_NORMAL="[0m"
 COLOR_RED="[1;31m"
 COLOR_YELLOW="[1;33m"
 COLOR_GREEN="[1;32m"
+COLOR_BWHITE="[1;37m"
 
+fs_types = set(["ext3", "ext4"])
+
+def gb(kbytes, ndigits=1):
+    return round(kbytes / 1024 / 1024, ndigits)
 
 class Subcommand:
     """
@@ -143,9 +148,13 @@ class MyIP(Subcommand):
     def config_parser(cls, parser):
         parser.description = cls.long_desc
 
-    def run(self):
+    def get(self):
         info = os.popen('curl -4 -s ifconfig.co/json').read()
         j = json.loads(info)
+        return j
+
+    def run(self):
+        j =  self.get()
         sys.stdout.write("ip: {}\n".format(j.get("ip", "??")))
         sys.stdout.write("hostname: {}\n".format(j.get("hostname", "??")))
         sys.stdout.write("country: {}\n".format(j.get("country", "??")))
@@ -176,6 +185,15 @@ class SysInfo(Subcommand):
                     proc[key] = value
         return procs
 
+    def get_load(self):
+        with open("/proc/loadavg", "r") as f:
+            avg_1, avg_5, avg_15, rest = f.readline().split(" ", 3)
+        return {
+            "avg_1": avg_1,
+            "avg_5": avg_5,
+            "avg_15": avg_15
+        }
+
     def get_mem(self):
         mem = {}
         with open("/proc/meminfo", "r") as f:
@@ -186,13 +204,41 @@ class SysInfo(Subcommand):
                 value = int(value)
                 mem[key] = value
         return {
-            "mem_total": round(mem["MemTotal"] / 1024 / 1024, 2),
-            "mem_free": round(mem["MemFree"] / 1024 / 1024, 2),
-            "mem_avail": round(mem["MemAvailable"] / 1024 / 1024, 2),
-            "mem_bufcache": round((mem["Buffers"] + mem["Cached"]) / 1024 / 1024, 2),
-            "swap_total": round(mem["SwapTotal"] / 1024 / 1024, 2),
-            "swap_free": round(mem["SwapFree"] / 1024 / 1024, 2),
+            "mem_total": gb(mem["MemTotal"]),
+            "mem_used": gb(mem["MemTotal"] - mem["MemFree"] - mem["Buffers"] - mem["Cached"]),
+            "mem_free": gb(mem["MemFree"]),
+            "mem_avail": gb(mem["MemAvailable"]),
+            "mem_buffers": gb(mem["Buffers"]),
+            "mem_cached": gb(mem["Cached"] + mem["SReclaimable"]),
+            "mem_bufcache": gb(mem["Buffers"] + mem["Cached"]),
+            "swap_total": gb(mem["SwapTotal"]),
+            "swap_used": gb(mem["SwapTotal"] - mem["SwapFree"]),
+            "swap_free": gb(mem["SwapFree"]),
         }
+
+    def get_disks(self):
+        disks = []
+        with open("/proc/mounts", "r") as f:
+            for line in f:
+                dev, mntpoint, fstype, options = line.split(" ", 3)
+                if fstype in fs_types:
+                    diskstat = os.statvfs(mntpoint)
+                    size = diskstat.f_blocks * diskstat.f_frsize
+                    free = diskstat.f_bavail * diskstat.f_frsize
+                    reserved = size * 0.05
+                    used = size - free - reserved
+                    disk = {
+                        "dev": dev,
+                        "mntpoint": mntpoint,
+                        "fstype": fstype,
+                        "size": gb(size / 1024, 1),
+                        "reserved": gb(reserved / 1024, 1),
+                        "free": gb(free / 1024, 1),
+                        "used": gb(used / 1024, 1),
+                    }
+                    disks.append(disk)
+        return disks
+
 
     def get_os(self):
         os_info = {
@@ -256,14 +302,38 @@ class SysInfo(Subcommand):
 
         return os_info
 
+    def get_ips(self):
+        ips = set()
+        prev_line = ''
+        with open('/proc/net/fib_trie', 'r') as f:
+            for line in f:
+                if '32 host' in line:
+                    ip = prev_line.strip().split()[-1]
+                    ips.add(ip)
+                prev_line = line
+        return ips
+
     def run(self):
         os = self.get_os()
         processors = self.get_processors()
+        load = self.get_load()
         mem = self.get_mem()
-        sys.stdout.write("OS: {} ({}) v{}\n".format(os["os"], os["family"], ".".join(os["version"])))
-        sys.stdout.write("CPU: {} x {}\n".format(len(processors), processors[-1]["model name"]))
-        sys.stdout.write("Mem: {} G total, {} G free, {} G avail\n".format(mem["mem_total"], mem["mem_free"], mem["mem_avail"]))
-        sys.stdout.write("Swap: {} G total, {} G free\n".format(mem["swap_total"], mem["swap_free"]))
+        disks = self.get_disks()
+        ips = self.get_ips()
+        myip = MyIP(None).get()
+
+        sys.stdout.write("OS:        {} ({}) v{}\n".format(os["os"], os["family"], ".".join(os["version"])))
+        sys.stdout.write("CPU:       {} x {}\n".format(len(processors), processors[-1]["model name"]))
+        sys.stdout.write("Load:      {} {} {}\n".format(load["avg_1"], load["avg_5"], load["avg_15"]))
+        sys.stdout.write("\n")
+        sys.stdout.write("Local IPs: {}\n".format(", ".join(sorted(ips))))
+        sys.stdout.write("Out IP:    {}   {} ({}, {})\n".format(myip["ip"], myip["hostname"], myip.get("city", "?"), myip["country"]))
+        sys.stdout.write("\n")
+        sys.stdout.write("{}             Total       Used      Avail    Buffers     Cached       Free     Mnt{}\n".format(COLOR_BWHITE, COLOR_NORMAL))
+        sys.stdout.write("Mem:    {:8} G {:8}   {:8} G {:8} G {:8} G {:8} G\n".format(mem["mem_total"], "", mem["mem_avail"], mem["mem_buffers"], mem["mem_cached"], mem["mem_free"]))
+        sys.stdout.write("Swap:   {:8} G {:8} G {:8} G\n".format(mem["swap_total"], mem["swap_used"], mem["swap_free"]))
+        for disk in disks:
+            sys.stdout.write("Disk:   {:8} G {:8} G {:8} G                                      {}\n".format(disk["size"], disk["used"], disk["free"], disk["mntpoint"]))
 
 
 if __name__ == "__main__":
