@@ -8,6 +8,7 @@ import socket
 import os
 import json
 import subprocess
+import re
 
 COLOR_NORMAL="[0m"
 COLOR_RED="[1;31m"
