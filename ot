@@ -202,7 +202,7 @@ class SysInfo(Subcommand):
                 key, value = map(lambda x: x.strip(), line.split(":", 1))
                 if value.endswith(" kB"):
                     value = value[:-3]
-                value = int(value)
+                value = float(value)
                 mem[key] = value
         return {
             "mem_total": gb(mem["MemTotal"]),
