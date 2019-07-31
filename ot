@@ -204,11 +204,12 @@ class SysInfo(Subcommand):
                     value = value[:-3]
                 value = float(value)
                 mem[key] = value
-        return {
+
+        mem_info = {
             "mem_total": gb(mem["MemTotal"]),
             "mem_used": gb(mem["MemTotal"] - mem["MemFree"] - mem["Buffers"] - mem["Cached"]),
             "mem_free": gb(mem["MemFree"]),
-            "mem_avail": gb(mem["MemAvailable"]),
+            "mem_avail": "",
             "mem_buffers": gb(mem["Buffers"]),
             "mem_cached": gb(mem["Cached"] + mem["SReclaimable"]),
             "mem_bufcache": gb(mem["Buffers"] + mem["Cached"]),
@@ -216,6 +217,10 @@ class SysInfo(Subcommand):
             "swap_used": gb(mem["SwapTotal"] - mem["SwapFree"]),
             "swap_free": gb(mem["SwapFree"]),
         }
+        if 'MemAvailable' in mem:
+            mem_info["mem_avail"] = gb(mem["MemAvailable"])
+
+        return mem_info
 
     def get_disks(self):
         disks = []
