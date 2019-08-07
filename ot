@@ -61,7 +61,7 @@ class Netconn(Subcommand):
             raise
 
     def _host_info(self, host):
-        ip = socket.gethostbyname(host)
+        ip = socket.gethostbyname(host).decode("utf8")
         hostname, aliases, ips = socket.gethostbyname_ex(host)
         rem_ips = None
         try:
@@ -75,7 +75,7 @@ class Netconn(Subcommand):
         sys.stdout.write("ips (public dns): {}\n".format(rem_ips))
 
         for ip in ips:
-            self._ip_info(ipaddress.ip_address(ip), hostname, self.args)
+            self._ip_info(ipaddress.ip_address(ip.decode("utf8")), hostname, self.args)
 
     def _ip_info(self, ip, hostname, args):
         try:
