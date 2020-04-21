@@ -155,7 +155,10 @@ class MyIP(Subcommand):
 
     def get(self):
         info = os.popen('curl -4 -s ifconfig.co/json').read()
-        j = json.loads(info)
+        try:
+            j = json.loads(info)
+        except json.decoder.JSONDecodeError:
+            j = {}
         return j
 
     def run(self):
