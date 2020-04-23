@@ -235,21 +235,26 @@ class SysInfo(Subcommand):
             for line in f:
                 dev, mntpoint, fstype, options = line.split(" ", 3)
                 if fstype in fs_types:
-                    diskstat = os.statvfs(mntpoint)
-                    size = diskstat.f_blocks * diskstat.f_frsize
-                    free = diskstat.f_bavail * diskstat.f_frsize
-                    reserved = size * 0.05
-                    used = size - free - reserved
-                    disk = {
-                        "dev": dev,
-                        "mntpoint": mntpoint,
-                        "fstype": fstype,
-                        "size": gb(size / 1024, 1),
-                        "reserved": gb(reserved / 1024, 1),
-                        "free": gb(free / 1024, 1),
-                        "used": gb(used / 1024, 1),
-                    }
-                    disks.append(disk)
+                    try:
+                        diskstat = os.statvfs(mntpoint)
+                        size = diskstat.f_blocks * diskstat.f_frsize
+                        free = diskstat.f_bavail * diskstat.f_frsize
+                        reserved = size * 0.05
+                        used = size - free - reserved
+                        disk = {
+                            "dev": dev,
+                            "mntpoint": mntpoint,
+                            "fstype": fstype,
+                            "size": gb(size / 1024, 1),
+                            "reserved": gb(reserved / 1024, 1),
+                            "free": gb(free / 1024, 1),
+                            "used": gb(used / 1024, 1),
+                        }
+                        disks.append(disk)
+                    except PermissionError as err:
+                        if err.errno == 13:
+                            # permission denied
+                            pass
         return disks
 
 
