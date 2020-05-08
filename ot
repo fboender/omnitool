@@ -9,6 +9,8 @@ import os
 import json
 import subprocess
 import re
+import tempfile
+import hashlib
 
 COLOR_NORMAL="[0m"
 COLOR_RED="[1;31m"
@@ -352,6 +354,111 @@ class SysInfo(Subcommand):
         sys.stdout.write("Swap:   {:8} G {:8} G {:8} G\n".format(mem["swap_total"], mem["swap_used"], mem["swap_free"]))
         for disk in disks:
             sys.stdout.write("Disk:   {:8} G {:8} G {:8} G                                      {}\n".format(disk["size"], disk["used"], disk["free"], disk["mntpoint"]))
+
+
+class SSLInfo(Subcommand):
+    subcommand = "sslinfo"
+    short_desc = "Show info on SSL cert/key/etc files"
+    long_desc = "Show info on SSL cert/key/etc files"
+
+    @classmethod
+    def config_parser(cls, parser):
+        parser.description = cls.long_desc
+        parser.add_argument('files', nargs='+', metavar='FILES', type=str, default=None, help='Files')
+
+    def proc_pem_part(self, pem_part):
+        if pem_part.strip().startswith("-----BEGIN CERTIFICATE REQUEST-----"):
+            self.proc_pem_csr(pem_part)
+        elif pem_part.strip().startswith("-----BEGIN CERTIFICATE-----"):
+            self.proc_pem_crt(pem_part)
+        elif pem_part.strip().startswith("-----BEGIN PRIVATE KEY-----"):
+            self.proc_pem_key(pem_part)
+        else:
+            sys.stdout.write("Unknown format\n")
+            return
+
+    def proc_pem_csr(self, pem_part):
+        cmd = "openssl req -in '{fname}' -text -noout"
+        pem_info = self.call_openssl_tmp(cmd, pem_part)
+        sys.stdout.write("    Subject:              {}\n".format(pem_info.get("Subject", "")))
+        sys.stdout.write("    Public Key Algorithm: {}\n".format(pem_info.get("Public Key Algorithm", "")))
+        sys.stdout.write("    RSA Public-Key:       {}\n".format(pem_info.get("RSA Public-Key", "")))
+        sys.stdout.write("    Signature Algorithm:  {}\n".format(pem_info.get("Signature Algorithm", "")))
+
+    def proc_pem_crt(self, pem_part):
+        cmd = "openssl x509 -in '{fname}' -text -noout"
+        pem_info = self.call_openssl_tmp(cmd, pem_part)
+        sys.stdout.write("    Subject:      {}\n".format(pem_info.get("Subject", "")))
+        sys.stdout.write("    Issuer:       {}\n".format(pem_info.get("Issuer", "")))
+        sys.stdout.write("    Not After:    {}\n".format(pem_info.get("Not After", "")))
+        sys.stdout.write("    Modulus Hash: {}\n".format(pem_info.get("ModulusHash", "")))
+
+    def proc_pem_key(self, pem_part):
+        cmd = "openssl rsa -in '{fname}' -text -noout"
+        pem_info = self.call_openssl_tmp(cmd, pem_part)
+        sys.stdout.write("    RSA Private-Key: {}\n".format(pem_info.get("RSA Private-Key", "")))
+        sys.stdout.write("    Modulus Hash:    {}\n".format(pem_info.get("ModulusHash", "")))
+
+    def call_openssl_tmp(self, cmd, tmp_buf):
+        with tempfile.NamedTemporaryFile() as fp:
+            fp.write(tmp_buf.encode('utf8'))
+            fp.flush()
+            proc = subprocess.run(
+                cmd.format(fname=fp.name),
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            if proc.returncode != 0:
+                sys.stderr.write("openssl returned: {}\n".format(proc.stderr))
+                return
+
+        pem_info = {}
+        lines = proc.stdout.decode("utf8").splitlines()
+        for i in range(len(lines)):
+            line = lines[i]
+            if "Serial Number:" in line:
+                pem_info["Serial Number"] = lines[i+1].strip()
+                i += 1
+            if "modulus:" in line.lower():
+                modulus = ""
+                while True:
+                    next_line = lines[i+1]
+                    if next_line.strip()[0] not in "0123456789abcdef":
+                        break
+                    modulus += next_line.strip()
+                    i += 1
+                pem_info["ModulusHash"] = hashlib.md5(modulus.encode("ascii")).hexdigest().upper()
+            elif ":" in line:
+                key, rest = line.strip().split(":", 1)
+                pem_info[key.strip()] = rest.strip()
+
+        return pem_info
+
+    def file_info(self, file):
+        buf = ""
+        in_cert = False
+        with open(file, "r") as fh:
+            part = 0
+            for line in fh:
+                if line.startswith('-----BEGIN'):
+                    in_cert = True
+                    print("  {} (PEM format)".format(line[11:-6].capitalize()))
+                elif line.startswith('-----END'):
+                    buf += line
+                    # process
+                    part += 1
+                    sys.stdout.write("  {}part {}{}\n".format(COLOR_YELLOW, part, COLOR_NORMAL))
+                    pem_info = self.proc_pem_part(buf)
+                    in_cert = False
+
+                if in_cert:
+                    buf += line
+
+    def run(self):
+        for file in self.args.files:
+            sys.stdout.write("{}{}{}\n".format(COLOR_GREEN, file, COLOR_NORMAL))
+            self.file_info(file)
 
 
 if __name__ == "__main__":
