@@ -451,6 +451,7 @@ class SSLInfo(Subcommand):
                     sys.stdout.write("  {}part {}{}\n".format(COLOR_YELLOW, part, COLOR_NORMAL))
                     pem_info = self.proc_pem_part(buf)
                     in_cert = False
+                    buf = ""
 
                 if in_cert:
                     buf += line
