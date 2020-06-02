@@ -392,6 +392,8 @@ class SSLInfo(Subcommand):
         sys.stdout.write("    Issuer:       {}\n".format(pem_info.get("Issuer", "")))
         sys.stdout.write("    Not After:    {}\n".format(pem_info.get("Not After", "")))
         sys.stdout.write("    Modulus Hash: {}\n".format(pem_info.get("ModulusHash", "")))
+        if pem_info.get("IsRoot", False):
+            sys.stdout.write("    Is Root:      {}Yes{}\n".format(COLOR_RED, COLOR_NORMAL))
 
     def proc_pem_key(self, pem_part):
         cmd = "openssl rsa -in '{fname}' -text -noout"
@@ -432,6 +434,10 @@ class SSLInfo(Subcommand):
             elif ":" in line:
                 key, rest = line.strip().split(":", 1)
                 pem_info[key.strip()] = rest.strip()
+
+        # Check if it's a root certificate
+        if pem_info.get("Subject", "") == pem_info.get("Issuer", "NOT EMPTY"):
+            pem_info["IsRoot"] = True
 
         return pem_info
 
