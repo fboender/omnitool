@@ -347,7 +347,7 @@ class SysInfo(Subcommand):
         sys.stdout.write("Load:      {} {} {}\n".format(load["avg_1"], load["avg_5"], load["avg_15"]))
         sys.stdout.write("\n")
         sys.stdout.write("Local IPs: {}\n".format(", ".join(sorted(ips))))
-        sys.stdout.write("Out IP:    {}   {} ({}, {})\n".format(myip.get("ip", "??"), myip.get("hostname", "??"), myip.get("city", "?"), myip["country"]))
+        sys.stdout.write("Out IP:    {}   {} ({}, {})\n".format(myip.get("ip", "??"), myip.get("hostname", "??"), myip.get("city", "?"), myip.get("country", "?")))
         sys.stdout.write("\n")
         sys.stdout.write("{}             Total       Used      Avail    Buffers     Cached       Free     Mnt{}\n".format(COLOR_BWHITE, COLOR_NORMAL))
         sys.stdout.write("Mem:    {:8} G {:8}   {:8} G {:8} G {:8} G {:8} G\n".format(mem["mem_total"], "", mem["mem_avail"], mem["mem_buffers"], mem["mem_cached"], mem["mem_free"]))
