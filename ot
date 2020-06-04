@@ -373,6 +373,8 @@ class SSLInfo(Subcommand):
             self.proc_pem_crt(pem_part)
         elif pem_part.strip().startswith("-----BEGIN PRIVATE KEY-----"):
             self.proc_pem_key(pem_part)
+        elif pem_part.strip().startswith("-----BEGIN RSA PRIVATE KEY-----"):
+            self.proc_pem_key(pem_part)
         else:
             sys.stdout.write("Unknown format\n")
             return
