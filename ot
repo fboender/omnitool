@@ -333,6 +333,15 @@ class SysInfo(Subcommand):
                 prev_line = line
         return ips
 
+    def bar(self, total, used):
+        if used == 0 or total == 0:
+            return ""
+        bar_used = (used / total) * 20
+        bar_free = 20 - bar_used
+        bar_used_str = round(bar_used) * "┃"
+        bar_free_str = round(bar_free) * "┃"
+        return COLOR_RED + bar_used_str + COLOR_GREEN + bar_free_str + COLOR_NORMAL
+
     def run(self):
         os = self.get_os()
         processors = self.get_processors()
@@ -346,14 +355,17 @@ class SysInfo(Subcommand):
         sys.stdout.write("CPU:       {} x {}\n".format(len(processors), processors[-1]["model name"]))
         sys.stdout.write("Load:      {} {} {}\n".format(load["avg_1"], load["avg_5"], load["avg_15"]))
         sys.stdout.write("\n")
+
         sys.stdout.write("Local IPs: {}\n".format(", ".join(sorted(ips))))
         sys.stdout.write("Out IP:    {}   {} ({}, {})\n".format(myip.get("ip", "??"), myip.get("hostname", "??"), myip.get("city", "?"), myip.get("country", "?")))
         sys.stdout.write("\n")
+
         sys.stdout.write("{}             Total       Used      Avail    Buffers     Cached       Free     Mnt{}\n".format(COLOR_BWHITE, COLOR_NORMAL))
-        sys.stdout.write("Mem:    {:8} G {:8}   {:8} G {:8} G {:8} G {:8} G\n".format(mem["mem_total"], "", mem["mem_avail"], mem["mem_buffers"], mem["mem_cached"], mem["mem_free"]))
-        sys.stdout.write("Swap:   {:8} G {:8} G {:8} G\n".format(mem["swap_total"], mem["swap_used"], mem["swap_free"]))
+        sys.stdout.write("Mem:    {:8} G {:8}   {:8} G {:8} G {:8} G {:8} G {:22} {}\n".format(mem["mem_total"], "", mem["mem_avail"], mem["mem_buffers"], mem["mem_cached"], mem["mem_free"], " ", self.bar(mem["mem_total"], mem["mem_total"] - mem["mem_avail"])))
+        sys.stdout.write("Swap:   {:8} G {:8} G {:8} G {:55} {}\n".format(mem["swap_total"], mem["swap_used"], mem["swap_free"], "", self.bar(mem["swap_total"], mem["swap_used"])))
+
         for disk in disks:
-            sys.stdout.write("Disk:   {:8} G {:8} G {:8} G                                      {}\n".format(disk["size"], disk["used"], disk["free"], disk["mntpoint"]))
+            sys.stdout.write("Disk:   {:8} G {:8} G {:8} G                                      {:18} {}\n".format(disk["size"], disk["used"], disk["free"], disk["mntpoint"][:18], self.bar(disk["size"], disk["used"])))
 
 
 class SSLInfo(Subcommand):
