@@ -334,7 +334,7 @@ class SysInfo(Subcommand):
         return ips
 
     def bar(self, total, used):
-        if used == 0 or total == 0:
+        if total == 0:
             return ""
         bar_used = (used / total) * 20
         bar_free = 20 - bar_used
