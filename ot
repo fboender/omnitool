@@ -156,7 +156,7 @@ class MyIP(Subcommand):
         parser.description = cls.long_desc
 
     def get(self):
-        info = os.popen('curl --connect-timeout 2 -4 -s ifconfig.co/json').read()
+        info = os.popen('curl -m 2 -4 -s ifconfig.co/json').read()
         try:
             j = json.loads(info)
         except json.decoder.JSONDecodeError:
