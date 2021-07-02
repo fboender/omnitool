@@ -592,7 +592,7 @@ if __name__ == "__main__":
         subcommand = bin_name[3:]
         for member in inspect.getmembers(sys.modules[__name__], inspect.isclass):
             member_name, member_class = member
-            if member_class.subcommand == subcommand:
+            if getattr(member_class, 'subcommand', None) is not None and member_class.subcommand == subcommand:
                 member_class.config_parser(parser)
                 parser.set_defaults(cls=member_class)
                 break
