@@ -583,7 +583,7 @@ class Docker(Subcommand):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Net Tool')
+    parser = argparse.ArgumentParser(description='OmniTool')
     parser.add_argument('--version', action='version', version='%(prog)s 0.1')
 
     bin_name = os.path.basename(sys.argv[0])
