@@ -339,6 +339,7 @@ class SysInfo(Subcommand):
             'family': 'unknown',
             'os': 'unknown',
             'version': ('0', '0'),
+            'codename': None,
         }
 
         if os.path.exists('/etc/lsb-release'):
@@ -352,11 +353,9 @@ class SysInfo(Subcommand):
                         if value.lower().startswith('ubuntu'):
                             os_info['family'] = 'debian'
                     if key == 'DISTRIB_RELEASE':
-                        version = value.strip('"\'').split('.')
-                        if len(version) > 1:
-                            os_info['version'] = (str(version[0]), str(version[1]))
-                        else:
-                            os_info['version'] = (str(version[0]), '0')
+                        os_info['version'] = value
+                    if key == 'DISTRIB_CODENAME':
+                        os_info['codename'] = value
 
         if os.path.exists('/etc/os-release'):
             with open('/etc/os-release', 'r') as f:
@@ -425,7 +424,10 @@ class SysInfo(Subcommand):
         ips = self.get_ips()
         myip = MyIP(None).get()
 
-        sys.stdout.write("OS:        {} ({}) v{}\n".format(os["os"], os["family"], ".".join(os["version"])))
+        os_codename = ""
+        if os["codename"] != "":
+            os_codename = " ({})".format(os["codename"])
+        sys.stdout.write("OS:        {} ({}) v{}{}\n".format(os["os"], os["family"], ".".join(os["version"]), os_codename))
         sys.stdout.write("CPU:       {} x {}\n".format(len(processors), processors[-1]["model name"]))
         sys.stdout.write("Load:      {} {} {}\n".format(load["avg_1"], load["avg_5"], load["avg_15"]))
         sys.stdout.write("\n")
