@@ -586,33 +586,17 @@ if __name__ == "__main__":
 
     bin_name = os.path.basename(sys.argv[0])
     parser.prog = bin_name
-    if bin_name.startswith("ot-"):
-        # Construct subparser for the specific subcommand we're being called
-        # as.
-        subcommand = bin_name[3:]
-        for member in inspect.getmembers(sys.modules[__name__], inspect.isclass):
-            member_name, member_class = member
-            if getattr(member_class, 'subcommand', None) is not None and member_class.subcommand == subcommand:
-                member_class.config_parser(parser)
-                parser.set_defaults(cls=member_class)
-                break
-        else:
-            sys.stderr.write("No such subcommand '{}'\n".format(subcommand))
-            sys.exit(1)
-    elif bin_name == "ot":
-        # Construct subparsers for all subcommands
-        subparsers = parser.add_subparsers()
-        for member in inspect.getmembers(sys.modules[__name__], inspect.isclass):
-            member_name, member_class = member
-            if getattr(member_class, 'subcommand', None) is not None:
-                subcommand = member_class.subcommand
-                shortdesc = member_class.short_desc
-                subparser = subparsers.add_parser(subcommand, help=shortdesc)
-                member_class.config_parser(subparser)
-                subparser.set_defaults(cls=member_class)
-    else:
-        sys.stderr.write("Can't call ot as '{}'\n".format(bin_name))
-        sys.exit(1)
+
+    # Construct subparsers for all subcommands
+    subparsers = parser.add_subparsers()
+    for member in inspect.getmembers(sys.modules[__name__], inspect.isclass):
+        member_name, member_class = member
+        if getattr(member_class, 'subcommand', None) is not None:
+            subcommand = member_class.subcommand
+            shortdesc = member_class.short_desc
+            subparser = subparsers.add_parser(subcommand, help=shortdesc)
+            member_class.config_parser(subparser)
+            subparser.set_defaults(cls=member_class)
 
     args = parser.parse_args()
     if hasattr(args, 'cls'):
