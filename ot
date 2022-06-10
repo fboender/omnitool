@@ -11,6 +11,7 @@ import subprocess
 import re
 import tempfile
 import hashlib
+import struct
 
 COLOR_NORMAL="[0m"
 COLOR_RED="[1;31m"
@@ -230,7 +231,7 @@ class MyIP(Subcommand):
         parser.description = cls.long_desc
 
     def get(self):
-        info = os.popen('curl -m 2 -4 -s ifconfig.co/json').read()
+        info = os.popen('timeout 2 curl -4 -s ifconfig.co/json').read()
         try:
             j = json.loads(info)
         except json.decoder.JSONDecodeError:
@@ -580,6 +581,61 @@ class Docker(Subcommand):
         container_info = json.loads(self.docker_get_inspect(container_ids))
         for container in container_info:
             json_flatten(container, "{}:{}".format(container["Id"][:12], container["Name"][1:]))
+
+
+class Diag(Subcommand):
+    subcommand = "diag"
+    short_desc = "Diagnose common linux problems"
+    long_desc = "Diagnose network, dns, etc problems"
+
+    @classmethod
+    def config_parser(cls, parser):
+        parser.description = cls.long_desc
+
+    def _get_gateway(self):
+        """
+        Read the default gateway directly from /proc.
+        https://stackoverflow.com/questions/2761829/python-get-default-gateway-for-a-local-interface-ip-address-in-linux
+        """
+        with open("/proc/net/route") as fh:
+            for line in fh:
+                fields = line.strip().split()
+                if fields[1] != '00000000' or not int(fields[3], 16) & 2:
+                    # If not default route or not RTF_GATEWAY, skip it
+                    continue
+
+                return socket.inet_ntoa(struct.pack("<L", int(fields[2], 16)))
+
+    def _ping(self, host):
+        return os.system("ping -c 1 " + host)
+
+    def run(self):
+        default_gw = self._get_gateway()
+        sys.stdout.write("Checking local network: ")
+        sys.stdout.write("Pinging default gateway {}: ".format(default_gw))
+        sys.stdout.flush()
+        if os.system("ping -c 1 -w 1 {} > /dev/null".format(default_gw)) == 0:
+            sys.stdout.write("{}Ok{}\n".format(COLOR_GREEN, COLOR_NORMAL))
+        else:
+            sys.stdout.write("{}Nack{}\n".format(COLOR_RED, COLOR_NORMAL))
+
+        sys.stdout.write("Checking internet access: ")
+        sys.stdout.write("Pinging 8.8.8.8: ")
+        sys.stdout.flush()
+        if os.system("ping -c 1 -w 1 8.8.8.8 > /dev/null") == 0:
+            sys.stdout.write("{}Ok{}\n".format(COLOR_GREEN, COLOR_NORMAL))
+        else:
+            sys.stdout.write("{}Nack{}\n".format(COLOR_RED, COLOR_NORMAL))
+
+        sys.stdout.write("Checking DNS resolving: ")
+        sys.stdout.write("Resolving www.example.org: ")
+        sys.stdout.flush()
+        try:
+            ip = socket.gethostbyname('www.example.org')
+            sys.stdout.write("{}Ok{}\n".format(COLOR_GREEN, COLOR_NORMAL))
+        except socket.gaierror as err:
+            sys.stdout.write("{}Nack{}: {}\n".format(COLOR_RED, COLOR_NORMAL, err))
+
 
 
 if __name__ == "__main__":
