@@ -637,6 +637,61 @@ class Diag(Subcommand):
             sys.stdout.write("{}Nack{}: {}\n".format(COLOR_RED, COLOR_NORMAL, err))
 
 
+class Json(Subcommand):
+    subcommand = "json"
+    short_desc = "Do stuff with json"
+    long_desc = "Pretty-print, flatten and other json stuff"
+
+    @classmethod
+    def config_parser(cls, parser):
+        parser.description = cls.long_desc
+        parser.add_argument(
+            '-i','--indent',
+            dest="indent",
+            type=int,
+            action="store",
+            default=4,
+            help="Indent level. 0 will output a single line"
+
+        )
+        parser.add_argument(
+            '-f', '--flatten',
+            dest="flatten",
+            action="store_true",
+            default=False,
+            help="Flatten output"
+
+        )
+        parser.add_argument(
+            'input',
+            metavar='INPUT',
+            type=str,
+            nargs='?',
+            default=None,
+            help="File to read from. If ommitted, read from stdin"
+        )
+
+
+    def run(self):
+        if not sys.stdin.isatty():
+            data = json.load(sys.stdin)
+        else:
+            if self.args.input is None:
+                sys.stderr.write("The INPUT argument is required if no data is provided on stdin.\n")
+                sys.exit(1)
+
+            with open(self.args.input, "r") as fh:
+                data = json.load(fh)
+
+        if self.args.flatten is True:
+            json_flatten(data)
+        elif self.args.indent == 0:
+            json.dump(data, sys.stdout)
+            sys.stdout.write("\n")
+        else:
+            json.dump(data, sys.stdout, indent=self.args.indent)
+            sys.stdout.write("\n")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='OmniTool')

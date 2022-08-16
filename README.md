@@ -81,3 +81,54 @@ Show info about SSL / TLS certificates, etc.
       part 1
     Unknown format
 
+## diag
+
+Diagnose some common Linux problems.
+
+    $ ./ot diag
+    Checking local network: Pinging default gateway 192.168.1.1: Ok
+    Checking internet access: Pinging 8.8.8.8: Ok
+    Checking DNS resolving: Resolving www.example.org: Ok
+
+## json
+
+Do stuff with json such as pretty-printing, flattening, etc.
+
+    usage: ot json [-h] [-i INDENT] [-f] [INPUT]
+
+    Pretty-print, flatten and other json stuff
+
+    positional arguments:
+      INPUT                 File to read from. If ommitted, read from stdin
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      -i INDENT, --indent INDENT
+                            Indent level. 0 will output a single line
+      -f, --flatten         Flatten output
+
+Example:
+
+    $ cat ~/test.json
+    {"people":[{"name":"John","age":24},{"name":"Pete","age":45}]}
+
+    $ ./ot json -i 2 < ~/test.json
+    {
+      "people": [
+        {
+          "name": "John",
+          "age": 24
+        },
+        {
+          "name": "Pete",
+          "age": 45
+        }
+      ]
+    }
+
+    $ ./ot json -f < ~/test.json
+    people[0].name = John
+    people[0].age = 24
+    people[1].name = Pete
+    people[1].age = 45
+
