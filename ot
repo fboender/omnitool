@@ -12,6 +12,8 @@ import re
 import tempfile
 import hashlib
 import struct
+import time
+import datetime
 
 COLOR_NORMAL="[0m"
 COLOR_RED="[1;31m"
@@ -660,7 +662,6 @@ class Json(Subcommand):
             action="store_true",
             default=False,
             help="Flatten output"
-
         )
         parser.add_argument(
             'input',
@@ -691,6 +692,68 @@ class Json(Subcommand):
         else:
             json.dump(data, sys.stdout, indent=self.args.indent)
             sys.stdout.write("\n")
+
+
+class watch(Subcommand):
+    subcommand = "watch"
+    short_desc = "Watch process output"
+    long_desc = "Periodically execute command and show its output"
+
+    @classmethod
+    def config_parser(cls, parser):
+        parser.description = cls.long_desc
+        parser.add_argument(
+            '-i','--interval',
+            dest="interval",
+            type=int,
+            action="store",
+            default=1000,
+            help="Interval in miliseconds"
+        )
+        parser.add_argument(
+            '-n', '--no-ts',
+            dest="notimestamp",
+            action="store_true",
+            default=False,
+            help="Disable timestamps"
+        )
+        parser.add_argument(
+            '-o', '--one-line',
+            dest="oneline",
+            action="store_true",
+            default=False,
+            help="Force one line (escape newlines)"
+        )
+        parser.add_argument(
+            'cmd',
+            metavar='CMD',
+            type=str,
+            help="Command to run"
+        )
+
+
+    def run(self):
+        try:
+            while True:
+                output = ""
+
+                if self.args.notimestamp is False:
+                    now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    output += now + " "
+
+                res = cmd(self.args.cmd)
+                res["exitcode"] = 255
+                output += "{:3}".format(res["exitcode"]) + " " + res["stdout"]
+
+                if self.args.oneline:
+                    output = output.replace("\n", "\\n").replace("\r", "\\r") + "\n"
+
+                sys.stdout.write(output)
+                sys.stdout.flush()
+
+                time.sleep(self.args.interval / 1000)
+        except KeyboardInterrupt:
+            sys.exit(0)
 
 
 if __name__ == "__main__":
