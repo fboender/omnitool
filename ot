@@ -741,9 +741,12 @@ class watch(Subcommand):
                     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     output += now + " "
 
-                res = cmd(self.args.cmd)
-                res["exitcode"] = 255
-                output += "{:3}".format(res["exitcode"]) + " " + res["stdout"]
+                try:
+                    res = cmd(self.args.cmd)
+                except CmdError as err:
+                    output += "{:3}".format(err.exitcode) + " " + err.stderr
+                else:
+                    output += "{:3}".format(res["exitcode"]) + " " + res["stdout"]
 
                 if self.args.oneline:
                     output = output.replace("\n", "\\n").replace("\r", "\\r") + "\n"
