@@ -657,6 +657,13 @@ class Json(Subcommand):
 
         )
         parser.add_argument(
+            '-l', '--lines',
+            dest="lines",
+            action="store_true",
+            default=False,
+            help="Treat input as json lines"
+        )
+        parser.add_argument(
             '-f', '--flatten',
             dest="flatten",
             action="store_true",
@@ -674,16 +681,25 @@ class Json(Subcommand):
 
 
     def run(self):
-        if not sys.stdin.isatty():
-            data = json.load(sys.stdin)
-        else:
+        # Figure out the filehandle to read from (stdin or a file)
+        fh = None
+        if sys.stdin.isatty():
             if self.args.input is None:
                 sys.stderr.write("The INPUT argument is required if no data is provided on stdin.\n")
                 sys.exit(1)
+            else:
+                fh = open(self.args.input)
+        else:
+            fh = sys.stdin
 
-            with open(self.args.input, "r") as fh:
-                data = json.load(fh)
+        if self.args.lines:
+            # Treat as "JSON Lines" (each line is a seperate JSON object)
+            for line in fh.readlines():
+                self.output(json.loads(line))
+        else:
+            self.output(json.load(fh))
 
+    def output(self, data):
         if self.args.flatten is True:
             json_flatten(data)
         elif self.args.indent == 0:

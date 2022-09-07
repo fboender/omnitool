@@ -94,7 +94,7 @@ Diagnose some common Linux problems.
 
 Do stuff with json such as pretty-printing, flattening, etc.
 
-    usage: ot json [-h] [-i INDENT] [-f] [INPUT]
+    usage: ot json [-h] [-i INDENT] [-l] [-f] [INPUT]
 
     Pretty-print, flatten and other json stuff
 
@@ -105,6 +105,7 @@ Do stuff with json such as pretty-printing, flattening, etc.
       -h, --help            show this help message and exit
       -i INDENT, --indent INDENT
                             Indent level. 0 will output a single line
+      -l, --lines           Treat input as json lines
       -f, --flatten         Flatten output
 
 Example:
