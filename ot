@@ -767,6 +767,9 @@ class watch(Subcommand):
                 if self.args.oneline:
                     output = output.replace("\n", "\\n").replace("\r", "\\r") + "\n"
 
+                if not output.endswith("\n"):
+                    output += "\n"
+
                 sys.stdout.write(output)
                 sys.stdout.flush()
 
