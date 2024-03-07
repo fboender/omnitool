@@ -638,6 +638,15 @@ class Diag(Subcommand):
         except socket.gaierror as err:
             sys.stdout.write("{}Nack{}: {}\n".format(COLOR_RED, COLOR_NORMAL, err))
 
+        sys.stdout.write("Checking failed systemd services: ")
+        res = cmd("systemctl --failed --plain --no-legend")
+        if res["stdout"]:
+            sys.stdout.write("{}Nack{}: Some services are in failed state:\n".format(COLOR_RED, COLOR_NORMAL))
+            for line in res["stdout"].splitlines():
+                sys.stdout.write("    {}\n".format(line))
+        else:
+            sys.stdout.write("{}Ok{}\n".format(COLOR_GREEN, COLOR_NORMAL))
+
 
 class Json(Subcommand):
     subcommand = "json"
