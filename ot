@@ -767,11 +767,13 @@ class watch(Subcommand):
                     output += now + " "
 
                 try:
+                    now = time.time()
                     res = cmd(self.args.cmd)
+                    elapsed = time.time() - now
                 except CmdError as err:
-                    output += "{:3}".format(err.exitcode) + " " + err.stderr
+                    output += "e:{}".format(err.exitcode) + " " + err.stderr
                 else:
-                    output += "{:3}".format(res["exitcode"]) + " " + res["stdout"]
+                    output += "t:{:5.2f} e:{}".format(elapsed, res["exitcode"]) + " " + res["stdout"]
 
                 if self.args.oneline:
                     output = output.replace("\n", "\\n").replace("\r", "\\r") + "\n"
