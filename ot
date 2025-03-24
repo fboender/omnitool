@@ -595,14 +595,23 @@ class Docker(Subcommand):
 
             pid = container_info["State"]["Pid"]
             status = container_info["State"]["Status"]
+            entrypoint = " ".join(container_info["Config"]["Entrypoint"])
             merged_dir = container_info["GraphDriver"]["Data"]["MergedDir"]
             log_path = container_info["LogPath"]
             network_mode = container_info["HostConfig"]["NetworkMode"]
             ip_address = container_info["NetworkSettings"]["Networks"][network_mode]["IPAddress"]
             ports = container_info["NetworkSettings"]["Ports"]
+            mounts = container_info["Mounts"]
+            working_dir = "?"
+            try:
+                working_dir = container_info["Config"]["Labels"]["com.docker.compose.project.working_dir"]
+            except KeyError:
+                pass
 
             sys.stdout.write(f"PID: {pid}\n")
             sys.stdout.write(f"Status: {status}\n")
+            sys.stdout.write(f"Entrypoint: {entrypoint}\n")
+            sys.stdout.write(f"Working dir: {working_dir}\n")
             sys.stdout.write(f"Path on host: {merged_dir}\n")
             sys.stdout.write(f"Log path: {log_path}\n")
             sys.stdout.write(f"IP address: {ip_address}\n")
@@ -616,6 +625,12 @@ class Docker(Subcommand):
                     host_port = details[0]["HostPort"]
                     port_info = [host_ip, host_port, port]
                 sys.stdout.write(f"  {port_info[0]:>10} {port_info[1]:>10} {port_info[2]:>15}\n")
+            sys.stdout.write("Mounts:\n")
+            for mount in mounts:
+                sys.stdout.write(f"  {mount['Type']} {mount['Source']} {mount['Destination']}\n")
+            sys.stdout.write("Environment:\n")
+            for env in container_info["Config"]["Env"]:
+                sys.stdout.write(f"  {env}\n")
         else:
             # Show flattened info on all containers
             container_ids = " ".join(self.docker_get_container_ids())
